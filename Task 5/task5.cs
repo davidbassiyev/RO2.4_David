@@ -1,136 +1,185 @@
-using System;
+Registry registry = new Registry();
+bool running = true;
+
+while (running)
+{
+    Console.WriteLine("\n1. Add student");
+    Console.WriteLine("2. Find by ID");
+    Console.WriteLine("3. Find by name");
+    Console.WriteLine("4. Top N students");
+    Console.WriteLine("5. Print all");
+    Console.WriteLine("6. Exit");
+    Console.Write("Choice: ");
+
+    string choice = Console.ReadLine();
+
+    if (choice == "1")
+    {
+        Console.Write("Name: ");
+        string name = Console.ReadLine();
+
+        Console.Write("Faculty: ");
+        string faculty = Console.ReadLine();
+
+        Console.Write("GPA (0.0 - 4.0): ");
+        double gpa = double.Parse(Console.ReadLine());
+
+        if (gpa < 0.0 || gpa > 4.0)
+        {
+            Console.WriteLine("Invalid GPA.");
+        }
+        else
+        {
+            registry.Add(new Student(name, faculty, gpa));
+            Console.WriteLine("Student added.");
+        }
+    }
+    else if (choice == "2")
+    {
+        Console.Write("Enter ID: ");
+        int id = int.Parse(Console.ReadLine());
+
+        Student found = registry.FindById(id);
+        if (found == null)
+            Console.WriteLine("Not found.");
+        else
+            Console.WriteLine(found.GetInfo());
+    }
+    else if (choice == "3")
+    {
+        Console.Write("Enter name: ");
+        string name = Console.ReadLine();
+
+        Student[] results = registry.FindByName(name);
+        if (results.Length == 0)
+            Console.WriteLine("Not found.");
+        else
+            foreach (Student s in results)
+                Console.WriteLine(s.GetInfo());
+    }
+    else if (choice == "4")
+    {
+        Console.Write("Enter N: ");
+        int n = int.Parse(Console.ReadLine());
+
+        Student[] top = registry.GetTopStudents(n);
+        for (int i = 0; i < top.Length; i++)
+            Console.WriteLine($"#{i + 1} {top[i].GetInfo()}");
+    }
+    else if (choice == "5")
+    {
+        registry.PrintAll();
+    }
+    else if (choice == "6")
+    {
+        running = false;
+    }
+    else
+    {
+        Console.WriteLine("Invalid choice.");
+    }
+}
 
 class Student
 {
-    static int counter = 1;
+    private static int _nextId = 1;
+    private double _gpa;
 
-    public int Id;
-    public string Name;
-    public double GPA;
-    public string Faculty;
+    public int StudentId { get; }
+    public string Name { get; set; }
+    public string Faculty { get; set; }
 
-    public Student(string name, double gpa, string faculty)
+    public double GPA
     {
-        Id = counter++;
-        Name = name;
-
-        if (gpa >= 0 && gpa <= 4)
-            GPA = gpa;
-        else
-            GPA = 0;
-
-        Faculty = faculty;
+        get => _gpa;
+        set
+        {
+            if (value < 0.0 || value > 4.0)
+                throw new ArgumentException("GPA must be 0.0 - 4.0");
+            _gpa = value;
+        }
     }
 
-    public void Print()
+    public Student(string name, string faculty, double gpa)
     {
-        Console.WriteLine($"{Id} | {Name} | {GPA} | {Faculty}");
+        StudentId = _nextId++;
+        Name = name;
+        Faculty = faculty;
+        GPA = gpa;
+    }
+
+    public string GetInfo()
+    {
+        return $"ID: {StudentId} | {Name} | {Faculty} | GPA: {GPA:F2}";
     }
 }
 
 class Registry
 {
-    Student[] students = new Student[100];
-    int count = 0;
+    private Student[] _students = new Student[100];
+    private int _count = 0;
 
-    public void Add(Student s)
+    public void Add(Student student)
     {
-        if (count < 100)
+        if (_count >= 100)
         {
-            students[count] = s;
-            count++;
+            Console.WriteLine("Registry is full.");
+            return;
         }
+        _students[_count++] = student;
     }
 
     public Student FindById(int id)
     {
-        for (int i = 0; i < count; i++)
-            if (students[i].Id == id)
-                return students[i];
-
+        for (int i = 0; i < _count; i++)
+            if (_students[i].StudentId == id)
+                return _students[i];
         return null;
     }
 
-    public void FindByName(string name)
+    public Student[] FindByName(string name)
     {
-        for (int i = 0; i < count; i++)
-            if (students[i].Name == name)
-                students[i].Print();
+        int count = 0;
+        for (int i = 0; i < _count; i++)
+            if (_students[i].Name.ToLower().Contains(name.ToLower()))
+                count++;
+
+        Student[] result = new Student[count];
+        int idx = 0;
+        for (int i = 0; i < _count; i++)
+            if (_students[i].Name.ToLower().Contains(name.ToLower()))
+                result[idx++] = _students[i];
+
+        return result;
     }
 
-    public void GetTopStudents(int n)
+    public Student[] GetTopStudents(int n)
     {
-        Student[] copy = new Student[count];
+        Student[] sorted = new Student[_count];
+        for (int i = 0; i < _count; i++)
+            sorted[i] = _students[i];
 
-        for (int i = 0; i < count; i++)
-            copy[i] = students[i];
+        for (int i = 0; i < sorted.Length - 1; i++)
+            for (int j = 0; j < sorted.Length - 1 - i; j++)
+                if (sorted[j].GPA < sorted[j + 1].GPA)
+                    (sorted[j], sorted[j + 1]) = (sorted[j + 1], sorted[j]);
 
-        for (int i = 0; i < count - 1; i++)
-            for (int j = i + 1; j < count; j++)
-                if (copy[i].GPA < copy[j].GPA)
-                {
-                    var temp = copy[i];
-                    copy[i] = copy[j];
-                    copy[j] = temp;
-                }
+        int take = Math.Min(n, _count);
+        Student[] top = new Student[take];
+        for (int i = 0; i < take; i++)
+            top[i] = sorted[i];
 
-        for (int i = 0; i < n && i < count; i++)
-            copy[i].Print();
+        return top;
     }
 
     public void PrintAll()
     {
-        for (int i = 0; i < count; i++)
-            students[i].Print();
-    }
-}
-
-class Program
-{
-    static void Main()
-    {
-        Registry reg = new Registry();
-
-        while (true)
+        if (_count == 0)
         {
-            Console.WriteLine("\n1.Add 2.FindId 3.FindName 4.Top 5.All 0.Exit");
-            string c = Console.ReadLine();
-
-            if (c == "1")
-            {
-                Console.Write("Name: ");
-                string name = Console.ReadLine();
-
-                Console.Write("GPA: ");
-                double gpa = double.Parse(Console.ReadLine());
-
-                Console.Write("Faculty: ");
-                string f = Console.ReadLine();
-
-                reg.Add(new Student(name, gpa, f));
-            }
-            else if (c == "2")
-            {
-                int id = int.Parse(Console.ReadLine());
-                var s = reg.FindById(id);
-                if (s != null) s.Print();
-            }
-            else if (c == "3")
-            {
-                string name = Console.ReadLine();
-                reg.FindByName(name);
-            }
-            else if (c == "4")
-            {
-                int n = int.Parse(Console.ReadLine());
-                reg.GetTopStudents(n);
-            }
-            else if (c == "5")
-            {
-                reg.PrintAll();
-            }
-            else if (c == "0")
-                break;
+            Console.WriteLine("No students.");
+            return;
         }
+        for (int i = 0; i < _count; i++)
+            Console.WriteLine(_students[i].GetInfo());
     }
 }
